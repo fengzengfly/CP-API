@@ -17,7 +17,8 @@
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 dark:bg-dark-950 dark:text-gray-100;
+    @apply text-gray-900 dark:bg-dark-950 dark:text-gray-100;
+    background-color: #f8f7fc;
     @apply min-h-screen;
   }
 

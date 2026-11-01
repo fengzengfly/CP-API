@@ -1,5 +1,19 @@
 <template>
-  <div class="relative" ref="dropdownRef">
+  <div v-if="mode === 'toggle'" class="relative">
+    <button
+      type="button"
+      class="locale-toggle"
+      :disabled="switching"
+      :aria-label="`Switch language to ${currentLocaleCode === 'zh' ? 'English' : 'Chinese'}`"
+      :title="`Switch language to ${currentLocaleCode === 'zh' ? 'English' : 'Chinese'}`"
+      @click="selectLocale(currentLocaleCode === 'zh' ? 'en' : 'zh')"
+    >
+      <span :class="{ 'locale-toggle-active': currentLocaleCode === 'zh' }">中</span>
+      <span class="locale-toggle-divider">/</span>
+      <span :class="{ 'locale-toggle-active': currentLocaleCode === 'en' }">EN</span>
+    </button>
+  </div>
+  <div v-else class="relative" ref="dropdownRef">
     <button
       @click="toggleDropdown"
       :disabled="switching"
@@ -47,6 +61,8 @@ import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import { setLocale, availableLocales } from '@/i18n'
 
+withDefaults(defineProps<{ mode?: 'dropdown' | 'toggle' }>(), { mode: 'dropdown' })
+
 const { locale } = useI18n()
 
 const isOpen = ref(false)
@@ -92,6 +108,55 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.locale-toggle {
+  display: inline-flex;
+  min-width: 92px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #d7d5e7;
+  border-radius: 8px;
+  padding: 0 12px;
+  color: #626274;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+  font-weight: 600;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.locale-toggle:hover:not(:disabled) {
+  border-color: #aaa2d2;
+  background: #fff;
+}
+
+.locale-toggle:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.locale-toggle-active {
+  color: #5145cd;
+}
+
+.locale-toggle-divider {
+  color: #c4c0d1;
+}
+
+.dark .locale-toggle {
+  border-color: #403d56;
+  color: #c3bfd0;
+  background: rgba(30, 29, 44, 0.72);
+}
+
+.dark .locale-toggle:hover:not(:disabled) {
+  background: #252337;
+}
+
+.dark .locale-toggle-active {
+  color: #b9adff;
+}
+
 .dropdown-enter-active,
 .dropdown-leave-active {
   transition: all 0.15s ease;

@@ -108,7 +108,42 @@ describe('HomeView compact mode', () => {
     const wrapper = mountHome(settings)
 
     expect(wrapper.find('[data-testid="compact-home"]').exists()).toBe(false)
-    expect(wrapper.find('.terminal-container').exists()).toBe(true)
+    expect(wrapper.find('.orbit-hero').exists()).toBe(true)
+    expect(wrapper.find('.orbit-system animateMotion').exists()).toBe(true)
+    expect(wrapper.find('.hero-model-orbit animateMotion').exists()).toBe(true)
+    expect(wrapper.find('.hero-model-badge').exists()).toBe(true)
+    expect(wrapper.find('.hero-model-badge').text()).toContain('OpenAI')
+  })
+
+  it('renders the model matrix without the FAQ section', () => {
+    const wrapper = mountHome()
+
+    expect(wrapper.get('#models').findAll('.landing-model-pill')).toHaveLength(16)
+    expect(wrapper.find('#faq').exists()).toBe(false)
+    expect(wrapper.get('#models').findAll('.landing-access-card')).toHaveLength(2)
+    expect(wrapper.get('.landing-footer-nav').findAll('a, a[href]')).toHaveLength(7)
+    expect(wrapper.findAll('.orbit-brand-icon')).toHaveLength(8)
+  })
+
+  it('morphs the landing navigation into a centered pill after scrolling', async () => {
+    const wrapper = mountHome()
+
+    expect(wrapper.get('.landing-header').classes()).toContain('fixed')
+    expect(wrapper.get('.landing-header').classes()).not.toContain('is-scrolled')
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 21 })
+    window.dispatchEvent(new Event('scroll'))
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.get('.landing-header').classes()).toContain('is-scrolled')
+  })
+
+  it('keeps the model badges visible without motion when reduced motion is preferred', () => {
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList)
+
+    const wrapper = mountHome()
+
+    expect(wrapper.find('.hero-model-orbit animateMotion').exists()).toBe(false)
+    expect(wrapper.findAll('.hero-model-orbit g[transform^="translate("]')).toHaveLength(8)
   })
 
   it('links unauthenticated visitors to login', () => {

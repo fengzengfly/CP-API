@@ -17,6 +17,7 @@ This directory contains files for deploying Sub2API on Linux servers and Apple-s
 | `docker-compose.yml` | Docker Compose configuration (named volumes) |
 | `docker-compose.local.yml` | Docker Compose configuration (local directories, easy migration) |
 | `docker-deploy.sh` | **One-click Docker deployment script (recommended)** |
+| [`AGENT_SOURCE_DEPLOYMENT_CN.md`](./AGENT_SOURCE_DEPLOYMENT_CN.md) | Agent guide for deploying `fengzengfly/CP-API` to the `us-8c8g` VPS using Git over SSH |
 | `apple-container.sh` | Native Apple `container` lifecycle script |
 | `APPLE_CONTAINER.md` | Apple `container` deployment and operations guide |
 | `.env.example` | Container environment variables template |

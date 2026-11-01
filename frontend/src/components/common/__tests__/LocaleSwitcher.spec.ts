@@ -17,8 +17,11 @@ vi.mock('vue-i18n', () => ({ useI18n: () => ({ locale: { value: 'zh' } }) }))
 
 const reload = vi.fn()
 
-const mountSwitcher = () =>
-  mount(LocaleSwitcher, { global: { stubs: { Icon: true, transition: false } } })
+const mountSwitcher = (mode?: 'dropdown' | 'toggle') =>
+  mount(LocaleSwitcher, {
+    props: mode ? { mode } : {},
+    global: { stubs: { Icon: true, transition: false } }
+  })
 
 const choose = async (wrapper: ReturnType<typeof mountSwitcher>, name: string) => {
   await wrapper.get('button').trigger('click')
@@ -56,5 +59,16 @@ describe('LocaleSwitcher', () => {
 
     expect(setLocale).not.toHaveBeenCalled()
     expect(reload).not.toHaveBeenCalled()
+  })
+
+  it('switches directly to the other language in toggle mode', async () => {
+    const wrapper = mountSwitcher('toggle')
+
+    await wrapper.get('.locale-toggle').trigger('click')
+    await flushPromises()
+
+    expect(setLocale).toHaveBeenCalledWith('en')
+    expect(reload).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('.dropdown-enter-active').exists()).toBe(false)
   })
 })
