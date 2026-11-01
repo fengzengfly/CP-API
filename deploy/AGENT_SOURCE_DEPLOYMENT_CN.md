@@ -40,6 +40,8 @@ git push -u origin main
 
 通过 HexHub `list_assets` 按名称查找 `us-8c8g`，使用当前会话返回的 `asset_ref`，不要写死或复用过期值。目标服务器已配置 GitHub SSH key。使用 HexHub `shell` 验证仓库可读并确定默认分支：
 
+如果出现 `Host key verification failed`，先检查 `/root/.ssh/known_hosts`。只在将 GitHub 官方 SSH host-key 指纹与实时取得的 key 指纹核对一致后，才把 key 加入 `known_hosts`；参考 [GitHub 官方 SSH 指纹文档](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints)。截至 2026-11-02，GitHub ED25519 指纹为 `SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU`，以后仍须重新核对官方文档。不要设置 `StrictHostKeyChecking=no`，也不要未经核验就信任 `ssh-keyscan` 输出。
+
 ```bash
 set -euo pipefail
 repo=git@github.com:fengzengfly/CP-API.git
