@@ -74,6 +74,7 @@ describe('HomeView compact mode', () => {
     authStore.checkAuth.mockClear()
     appStore.fetchPublicSettings.mockClear()
     localStorage.clear()
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
     vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: false } as MediaQueryList)
   })
 
@@ -143,6 +144,30 @@ describe('HomeView compact mode', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.get('.landing-header').classes()).toContain('is-scrolled')
+  })
+
+  it.each([
+    { authenticated: false, admin: false, destination: '/login' },
+    { authenticated: true, admin: false, destination: '/dashboard' },
+    { authenticated: true, admin: true, destination: '/admin/dashboard' },
+  ])('keeps the header action on one line for $destination after scrolling', async ({
+    authenticated,
+    admin,
+    destination,
+  }) => {
+    authStore.isAuthenticated = authenticated
+    authStore.isAdmin = admin
+    const wrapper = mountHome()
+
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 100 })
+    window.dispatchEvent(new Event('scroll'))
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.get('.landing-header').classes()).toContain('is-scrolled')
+    expect(wrapper.get('.landing-nav-right').classes()).toContain('shrink-0')
+    const action = wrapper.get('.landing-nav-actions').getComponent(RouterLinkStub)
+    expect(action.classes()).toEqual(expect.arrayContaining(['shrink-0', 'whitespace-nowrap']))
+    expect(action.props('to')).toBe(destination)
   })
 
   it('keeps the model badges visible without motion when reduced motion is preferred', () => {

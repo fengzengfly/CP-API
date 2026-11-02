@@ -111,7 +111,7 @@
           <span class="truncate text-sm font-bold text-gray-900 dark:text-white">{{ siteName }}</span>
         </div>
 
-        <div class="landing-nav-right">
+        <div class="landing-nav-right shrink-0">
           <div class="landing-nav-links" :class="{ 'is-open': isMenuOpen }">
             <a href="#top" class="landing-nav-link" @click="isMenuOpen = false">{{ t('home.landing.navHome') }}</a>
             <router-link :to="isAuthenticated ? dashboardPath : '/login'" class="landing-nav-link" @click="isMenuOpen = false">{{ t('home.landing.navConsole') }}</router-link>
@@ -140,16 +140,16 @@
             <router-link
               v-if="isAuthenticated"
               :to="dashboardPath"
-              class="landing-button landing-button-dark"
+              class="landing-button landing-button-dark shrink-0 whitespace-nowrap"
             >
               <span
-                class="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-[10px] font-semibold text-white"
+                class="hidden h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-[10px] font-semibold text-white sm:flex"
               >
                 {{ userInitial }}
               </span>
               <span class="text-xs font-medium text-white">{{ t('home.dashboard') }}</span>
               <svg
-                class="h-3 w-3 text-gray-400"
+                class="hidden h-3 w-3 text-gray-400 sm:block"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -165,7 +165,7 @@
             <router-link
               v-else
               :to="isAuthenticated ? dashboardPath : '/login'"
-              class="landing-button landing-button-dark"
+              class="landing-button landing-button-dark shrink-0 whitespace-nowrap"
             >
               {{ isAuthenticated ? t('home.dashboard') : t('home.login') }}
             </router-link>
@@ -1006,6 +1006,20 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(24px) saturate(160%);
 }
 
+@media (min-width: 861px) {
+  .landing-header.is-scrolled .landing-nav-right {
+    gap: 18px;
+  }
+
+  .landing-header.is-scrolled .landing-nav-links {
+    gap: 16px;
+  }
+
+  .landing-header.is-scrolled .landing-nav-link {
+    font-size: 13px;
+  }
+}
+
 .dark .landing-nav {
   background: transparent;
 }
@@ -1685,6 +1699,19 @@ onBeforeUnmount(() => {
   .landing-model-groups { grid-template-columns: minmax(0, 1fr); }
   .landing-header.is-scrolled .landing-nav { min-height: 44px; }
   .landing-header.is-scrolled .landing-nav-actions > .landing-button { min-height: 32px; padding-inline: 9px; }
+}
+
+@media (max-width: 360px) {
+  .landing-nav { gap: 8px; }
+  .landing-nav-actions { gap: 6px; }
+  .landing-icon-button,
+  .landing-menu-button { width: 32px; flex-shrink: 0; }
+  .landing-nav-actions :deep(.locale-toggle) {
+    min-width: 72px;
+    gap: 6px;
+    padding-inline: 8px;
+  }
+  .landing-header.is-scrolled .landing-nav { padding-inline: 6px; }
 }
 
 .landing-content > section {
