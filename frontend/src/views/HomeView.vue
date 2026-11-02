@@ -293,7 +293,7 @@
       <div class="landing-content mx-auto w-full">
         <!-- Features Grid -->
         <section id="architecture" class="scroll-mt-24 landing-reveal">
-          <div class="landing-architecture-inner">
+          <div class="landing-section-inner">
             <div class="mb-8 max-w-2xl">
               <p class="landing-eyebrow">{{ t('home.landing.architectureEyebrow') }}</p>
               <p class="landing-section-subtitle">{{ t('home.landing.architectureSubtitle') }}</p>
@@ -1704,11 +1704,6 @@ onBeforeUnmount(() => {
   margin: 0.7rem 0 0;
   color: #777583;
   font-size: 13px;
-}
-
-.landing-architecture-inner {
-  width: min(100%, 1120px);
-  margin-inline: auto;
 }
 
 .landing-architecture-grid {

@@ -125,6 +125,14 @@ describe('HomeView compact mode', () => {
     expect(wrapper.findAll('.orbit-brand-icon')).toHaveLength(8)
   })
 
+  it('uses the shared content container to align landing section headings', () => {
+    const wrapper = mountHome()
+
+    for (const section of ['#architecture', '#quickstart', '#models']) {
+      expect(wrapper.get(`${section} > .landing-section-inner`).find('h2').exists()).toBe(true)
+    }
+  })
+
   it('morphs the landing navigation into a centered pill after scrolling', async () => {
     const wrapper = mountHome()
 
