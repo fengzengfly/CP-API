@@ -73,6 +73,21 @@ export default {
       'The administrator enabled the entry but has not configured a recharge/subscription URL. Please contact admin.'
   },
 
+  cdkShop: {
+    center: 'Recharge Center',
+    title: 'CDK Recharge',
+    description: 'After purchasing a CDK, redeem it to add balance.',
+    notice: 'Store content is provided remotely. If products do not appear, wait a moment or open the store directly.',
+    openDirect: 'Open store',
+    redeem: 'Redeem CDK',
+    copyLink: 'Copy store link',
+    copied: 'Copied',
+    linkCopied: 'Store link copied to clipboard',
+    copyFailed: 'Could not copy. Check your browser clipboard permission.',
+    reload: 'Reload store',
+    openNewTab: 'Open store in new tab'
+  },
+
   // Custom Page (iframe embed)
   customPage: {
     title: 'Custom Page',

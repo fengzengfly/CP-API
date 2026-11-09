@@ -71,6 +71,21 @@ export default {
     notConfiguredDesc: '管理员已开启入口，但尚未配置充值/订阅链接，请联系管理员。'
   },
 
+  cdkShop: {
+    center: '充值中心',
+    title: '充值 CDK',
+    description: '购买卡密后，前往兑换页充值余额。',
+    notice: '店铺内容由云端提供；如未显示商品，请稍候或直接打开店铺。',
+    openDirect: '直接打开店铺',
+    redeem: '兑换 CDK',
+    copyLink: '复制店铺链接',
+    copied: '已复制',
+    linkCopied: '店铺链接已复制到剪贴板',
+    copyFailed: '复制失败，请检查浏览器剪贴板权限',
+    reload: '重新加载店铺',
+    openNewTab: '新窗口打开店铺'
+  },
+
   // Custom Page (iframe embed)
   customPage: {
     title: '自定义页面',

@@ -169,6 +169,7 @@ export default {
     batchImage: 'Batch Images',
     usage: 'Usage',
     redeem: 'Redeem',
+    cdkPurchase: 'CDK Recharge',
     affiliate: 'Affiliate Rebates',
     affiliateManagement: 'Affiliate Rebates',
     affiliateInviteRecords: 'Invite Records',

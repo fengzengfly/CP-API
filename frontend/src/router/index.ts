@@ -253,6 +253,17 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/cdk-shop',
+    name: 'CDKShop',
+    component: () => import('@/views/user/CDKShopView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'CDK Recharge',
+      titleKey: 'nav.cdkPurchase'
+    }
+  },
+  {
     path: '/affiliate',
     name: 'Affiliate',
     component: () => import('@/views/user/AffiliateView.vue'),

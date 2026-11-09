@@ -2,6 +2,12 @@
 
 本文说明如何把 `fengzengfly/CP-API` 仓库部署到 HexHub 中名为 `us-8c8g` 的 VPS。部署目录为 `/sub2api`。源码由 VPS 使用 SSH key 从 GitHub clone/pull，再在 VPS 本地构建 Docker 镜像；不使用 SCP，也不推送 Docker Hub。
 
+项目根目录的 `AGENTS.md` 提供本指南的入口。HexHub MCP 是本机服务；
+从本机 Codex MCP 配置读取服务地址，不要猜测端口、资产别名或改走本地 SSH。
+若会话未自动暴露 HexHub 工具，可通过已配置的本机 MCP HTTP 端点执行
+`initialize`、`notifications/initialized`、`tools/list` 和 `tools/call`；
+后续请求保持同一 `Mcp-Session-Id`，先用 `list_assets` 获取目标服务器别名。
+
 ## 部署约束
 
 - 只有用户明确要求部署时才执行线上变更。
@@ -115,6 +121,23 @@ docker build --pull \
 
 ## 5. 精确切换应用镜像
 
+在切换前，保存当前健康容器的真实镜像 ID 和 Compose 快照，并固定一个独立回滚标签：
+
+```bash
+set -euo pipefail
+src=/sub2api/source
+commit=$(git -C "$src" rev-parse --short HEAD)
+SUB2API_DB_BACKUP="/sub2api/backups/sub2api-local-$commit.sql.gz" \
+  bash "$src/deploy/rollback.sh" --record
+bash "$src/deploy/rollback.sh" --check
+```
+
+脚本依赖 Bash、Python 3、flock、gzip 和 Docker Compose，默认操作 `/sub2api`。
+`--record` 会检查应用、PostgreSQL 和 Redis 健康状态以及数据库备份压缩包，
+将元数据写到 `/sub2api/releases/rollback.json`，同时保留每次记录的历史目录。
+只在**新镜像切换之前**执行一次 `--record`；上线后再次执行会将回滚点覆盖为新版本。
+不要删除记录中的镜像标签或历史目录。
+
 先用 HexHub `read` 读取 `/sub2api/docker-compose.yml`，确认应用服务当前 image 行；用 HexHub `edit` 只把该行替换为：
 
 ```yaml
@@ -133,13 +156,20 @@ docker compose up -d --no-deps sub2api
 
 检查 `docker compose ps`：应用、Postgres、Redis 均应 healthy。确认 `docker inspect sub2api --format '{{.Config.Image}}'` 返回刚构建的 tag，并从服务器本机对 `docker compose ps` 显示的映射端口请求 `/health`，预期 HTTP 200。若应用启动失败，查看 `docker compose logs --tail 100 sub2api`，注意不要把日志中的密码、令牌或自动生成的管理员凭据复制到对话中。
 
-若应用镜像自身有问题，把 Compose 的 image 行改回第 3 步记录的原值，再执行：
+若应用镜像自身有问题，先检查回滚条件，再执行回滚：
 
 ```bash
-cd /sub2api
-docker compose up -d --no-deps sub2api
+bash /sub2api/source/deploy/rollback.sh --check
+bash /sub2api/source/deploy/rollback.sh
 ```
 
-回滚后再次检查应用健康。若问题与数据库迁移/schema 有关，停止自动操作并报告；数据库恢复需要依据备份另行评估和授权。
+脚本验证已保存标签对应的镜像 ID，拒绝覆盖 image 之外发生了变化的 Compose 配置，
+只替换 `services.sub2api.image`，使用 `--no-deps --no-build --pull never` 重建应用，
+并等待最多 180 秒确认原镜像恢复且健康。不会重新构建旧源码，不会重建数据库或 Redis，
+不会自动恢复数据库备份；回滚前后的 Compose 快照和数据库备份均留存。
+`--check` 不更改 Compose 或容器，但会创建操作锁文件。
+
+回滚后再次检查应用健康与 `/health`。若问题与数据库迁移/schema 有关，
+停止自动操作并报告；数据库恢复需要依据备份另行评估和授权。
 
 保留本次源码目录、Git commit、镜像 tag 和数据库备份，作为发布记录及回滚依据。部署完成后向用户报告源码分支和 commit、镜像 tag、健康检查结果和备份位置。
