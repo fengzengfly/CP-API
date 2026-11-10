@@ -419,6 +419,14 @@ func TestEnhanceCSPPolicy(t *testing.T) {
 		assert.Contains(t, enhanced, "frame-src 'self'")
 	})
 
+	t.Run("allows_cdk_shop_in_frame_src_for_custom_policies", func(t *testing.T) {
+		policy := "default-src 'self'; frame-src 'self'"
+		enhanced := enhanceCSPPolicy(policy)
+
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "frame-src", CDKShopDomain))
+		assert.NotContains(t, enhanced, "frame-src *")
+	})
+
 	t.Run("does_not_duplicate_airwallex_domains", func(t *testing.T) {
 		policy := "default-src 'self'; script-src 'self' https://static.airwallex.com https://static-demo.airwallex.com; frame-src https://checkout.airwallex.com https://checkout-demo.airwallex.com"
 		enhanced := enhanceCSPPolicy(policy)

@@ -47,6 +47,8 @@ const (
 	AirwallexDemoStaticDomain = "https://static-demo.airwallex.com"
 	// AirwallexDemoCheckoutDomain 是 Airwallex 沙箱环境收银台元素和 iframe 域名。
 	AirwallexDemoCheckoutDomain = "https://checkout-demo.airwallex.com"
+	// CDKShopDomain 是 CDK 充值店铺的 iframe 来源。
+	CDKShopDomain = "https://catfk.com"
 )
 
 var requiredCSPDirectiveValues = []struct {
@@ -78,6 +80,7 @@ var requiredCSPDirectiveValues = []struct {
 	{"style-src", AirwallexStaticDomain},
 	{"style-src", AirwallexCheckoutDomain},
 	{"frame-src", AirwallexCheckoutDomain},
+	{"frame-src", CDKShopDomain},
 	{"script-src", AirwallexDemoStaticDomain},
 	{"script-src", AirwallexDemoCheckoutDomain},
 	{"style-src", AirwallexDemoStaticDomain},
