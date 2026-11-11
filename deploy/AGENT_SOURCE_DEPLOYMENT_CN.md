@@ -42,7 +42,7 @@ git push -u origin main
 
 同步新功能时先 fetch/审阅官方上游，再合并到本地并按用户要求推送私有仓库；不要直接把上游变化部署到 VPS。
 
-## 2. VPS 通过 SSH 拉取源码
+## 2. VPS 通过 SSH 拉取源码并检查迁移
 
 通过 HexHub `list_assets` 按名称查找 `us-8c8g`，使用当前会话返回的 `asset_ref`，不要写死或复用过期值。目标服务器已配置 GitHub SSH key。使用 HexHub `shell` 验证仓库可读并确定默认分支：
 
@@ -54,25 +54,51 @@ repo=git@github.com:fengzengfly/CP-API.git
 branch=$(git ls-remote --symref "$repo" HEAD | awk '$1 == "ref:" { sub("refs/heads/", "", $2); print $2 }')
 test -n "$branch" || { echo 'repository is empty or default branch is missing' >&2; exit 1; }
 src=/sub2api/source
+old_commit=
 
 if [ ! -e "$src" ]; then
   git clone --depth 1 --branch "$branch" "$repo" "$src"
 elif [ -d "$src/.git" ]; then
   test "$(git -C "$src" remote get-url origin)" = "$repo"
   test -z "$(git -C "$src" status --porcelain)" || { echo 'source checkout is dirty; stop' >&2; exit 1; }
+  old_commit=$(git -C "$src" rev-parse HEAD)
   git -C "$src" pull --ff-only origin "$branch"
 else
   echo "$src exists but is not the expected Git checkout; stop and inspect it" >&2
   exit 1
 fi
 
-commit=$(git -C "$src" rev-parse --short HEAD)
+new_commit=$(git -C "$src" rev-parse HEAD)
+if [ -n "$old_commit" ]; then
+  git -C "$src" merge-base --is-ancestor "$old_commit" "$new_commit" || {
+    echo 'pulled commit is not a fast-forward from the deployed source; stop' >&2
+    exit 1
+  }
+  printf '%s\n' 'Database migration changes in this update:'
+  git -C "$src" diff --name-status "$old_commit" "$new_commit" -- 'backend/migrations/*.sql'
+  schema_changes=$(git -C "$src" diff --name-only "$old_commit" "$new_commit" -- 'backend/ent/schema/**')
+  migration_changes=$(git -C "$src" diff --name-only "$old_commit" "$new_commit" -- 'backend/migrations/*.sql')
+  if [ -n "$schema_changes" ]; then
+    printf '%s\n' "$schema_changes"
+    echo 'Ent schema changed; verify a corresponding SQL migration exists before deploying' >&2
+    if [ -z "$migration_changes" ]; then
+      echo 'Ent schema changed without a SQL migration; stop and investigate' >&2
+      exit 1
+    fi
+  fi
+else
+  echo 'Initial checkout: no previous source commit to compare; verify the database baseline before deploying.'
+fi
+
+commit=$(git -C "$src" rev-parse --short "$new_commit")
 version=$(tr -d '\r\n' < "$src/backend/cmd/server/VERSION")
 tag="local-$commit"
-printf 'branch=%s commit=%s version=%s tag=%s\n' "$branch" "$commit" "$version" "$tag"
+printf 'branch=%s old_commit=%s new_commit=%s version=%s tag=%s\n' "$branch" "${old_commit:-none}" "$new_commit" "$version" "$tag"
 ```
 
 若 SSH 权限失败、仓库为空、默认分支缺失、checkout remote 不匹配或工作区不干净，停止并报告；不要退回 SCP/rsync，也不要覆盖现有目录。记录本次输出的 `branch`、`commit`、`version` 和 `tag`，后续命令沿用这些值。
+
+对比结果中的 `backend/migrations/*.sql` 是本次版本差异内新增、修改或删除的数据库迁移。逐个检查 SQL 内容及变更类型；迁移文件被修改或删除尤其需要确认是否违反迁移不可变约定。任何迁移不明确、Ent schema 变化没有对应 SQL migration、或 Git 不是 fast-forward 时都停止部署。首次 clone 没有旧提交可比对，应按首次安装/数据库基线另行确认，不要把它当成“无迁移”。
 
 ## 3. VPS 预检查与备份
 
@@ -87,7 +113,7 @@ docker inspect sub2api-redis --format '{{.State.Status}}/{{if .State.Health}}{{.
 df -h /sub2api
 ```
 
-应用、Postgres、Redis 必须处于 healthy，且磁盘空间足够。记录 Compose 中应用原来的 image 值，以便回滚。部署会触发应用启动和数据库迁移，先导出数据库备份并检查压缩包：
+应用、Postgres、Redis 必须处于 healthy，且磁盘空间足够。记录 Compose 中应用原来的 image 值，以便回滚。**每次部署都必须新建并验证 PostgreSQL 备份，不因本次没有迁移而跳过。**备份必须在切换应用镜像、从而可能执行数据库迁移之前完成：
 
 ```bash
 set -euo pipefail
@@ -95,11 +121,22 @@ commit=$(git -C /sub2api/source rev-parse --short HEAD)
 tag="local-$commit"
 umask 077
 mkdir -p /sub2api/backups
-docker exec sub2api-postgres sh -lc 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "/sub2api/backups/sub2api-$tag.sql.gz"
-gzip -t "/sub2api/backups/sub2api-$tag.sql.gz"
+timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+backup="/sub2api/backups/sub2api-$tag-$timestamp.sql.gz"
+docker exec sub2api-postgres sh -lc 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$backup"
+gzip -t "$backup"
+
+# 仅在本次备份完整性校验成功后，按修改时间保留最近两份同类部署备份。
+find /sub2api/backups -maxdepth 1 -type f -name 'sub2api-*.sql.gz' -printf '%T@ %f\n' \
+  | sort -nr \
+  | awk 'NR > 2 {print $2}' \
+  | while IFS= read -r file; do
+      [ -n "$file" ] && rm -f -- "/sub2api/backups/$file"
+    done
+printf 'verified_backup=%s\n' "$backup"
 ```
 
-备份失败或健康检查不通过时停止，不要继续切镜像。
+备份失败或健康检查不通过时停止，不要继续构建/切换应用镜像，也不要清理已有备份。校验成功后仅保留最近两份 `sub2api-*.sql.gz` 部署数据库备份，并记录保留文件的路径；其他命名的文件不会被该清理命令删除。不要把数据库备份提交到 Git。
 
 ## 4. 构建镜像
 
@@ -121,13 +158,17 @@ docker build --pull \
 
 ## 5. 精确切换应用镜像
 
-在切换前，保存当前健康容器的真实镜像 ID 和 Compose 快照，并固定一个独立回滚标签：
+本项目正常启动路径会在 `InitEnt` 阶段调用内置迁移器。新应用启动时，它会按文件名执行尚未记录的嵌入式 SQL，并在 `schema_migrations` 保存文件名和 checksum；已执行迁移会校验 checksum 后跳过。使用 PostgreSQL advisory lock 处理并发启动。**不要手工用 `psql` 执行仓库迁移 SQL**，否则会绕过迁移跟踪及校验。
+
+在切换前，确认第 2 节迁移差异已审核、第 3 节备份已通过 `gzip -t`，再保存当前健康容器的真实镜像 ID 和 Compose 快照，并固定一个独立回滚标签：
 
 ```bash
 set -euo pipefail
 src=/sub2api/source
 commit=$(git -C "$src" rev-parse --short HEAD)
-SUB2API_DB_BACKUP="/sub2api/backups/sub2api-local-$commit.sql.gz" \
+backup=$(find /sub2api/backups -maxdepth 1 -type f -name "sub2api-local-$commit-*.sql.gz" -printf '%T@ %p\n' | sort -nr | sed -n '1s/^[^ ]* //p')
+test -n "$backup" || { echo 'verified deployment backup not found; stop' >&2; exit 1; }
+SUB2API_DB_BACKUP="$backup" \
   bash "$src/deploy/rollback.sh" --record
 bash "$src/deploy/rollback.sh" --check
 ```
@@ -156,6 +197,8 @@ docker compose up -d --no-deps sub2api
 
 检查 `docker compose ps`：应用、Postgres、Redis 均应 healthy。确认 `docker inspect sub2api --format '{{.Config.Image}}'` 返回刚构建的 tag，并从服务器本机对 `docker compose ps` 显示的映射端口请求 `/health`，预期 HTTP 200。若应用启动失败，查看 `docker compose logs --tail 100 sub2api`，注意不要把日志中的密码、令牌或自动生成的管理员凭据复制到对话中。
 
+如果本次存在迁移，额外从数据库的 `schema_migrations` 核实目标迁移已被记录，且启动日志没有迁移错误。可通过应用容器连接到其数据库配置查询，不要输出连接密码或其他凭据。迁移失败、checksum 不匹配或新版本未健康时停止验收；不要重复执行 SQL、不要启动旧版容器反复尝试，也不要自动恢复数据库备份。
+
 若应用镜像自身有问题，先检查回滚条件，再执行回滚：
 
 ```bash
@@ -170,6 +213,6 @@ bash /sub2api/source/deploy/rollback.sh
 `--check` 不更改 Compose 或容器，但会创建操作锁文件。
 
 回滚后再次检查应用健康与 `/health`。若问题与数据库迁移/schema 有关，
-停止自动操作并报告；数据库恢复需要依据备份另行评估和授权。
+应用镜像回滚不会撤销已执行的数据库迁移。停止自动操作并报告；数据库恢复需要依据备份另行评估和授权，绝不因应用回滚而自动恢复数据库。
 
 保留本次源码目录、Git commit、镜像 tag 和数据库备份，作为发布记录及回滚依据。部署完成后向用户报告源码分支和 commit、镜像 tag、健康检查结果和备份位置。
