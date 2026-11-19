@@ -1929,12 +1929,6 @@ func (h *GatewayHandler) handleConcurrencyError(c *gin.Context, err error, slotT
 func (h *GatewayHandler) handleFailoverExhausted(c *gin.Context, failoverErr *service.UpstreamFailoverError, platform string, streamStarted bool) {
 	statusCode := failoverErr.StatusCode
 	responseBody := failoverErr.ResponseBody
-	if service.IsUpstreamInsufficientBalanceError(statusCode, responseBody) {
-		upstreamMsg := service.ExtractUpstreamErrorMessage(responseBody)
-		service.SetOpsUpstreamError(c, statusCode, upstreamMsg, "")
-		h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "upstream_error", "Service temporarily unavailable, please try again later", streamStarted)
-		return
-	}
 	if service.IsOpenAISilentRefusalErrorBody(responseBody) {
 		service.SetOpsUpstreamError(c, statusCode, service.OpenAISilentRefusalClientMessage(), "")
 		h.handleStreamingAwareError(c, http.StatusBadGateway, "upstream_error", service.OpenAISilentRefusalClientMessage(), streamStarted)
