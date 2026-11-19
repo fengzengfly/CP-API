@@ -87,6 +87,44 @@ func TestOpenAIAccessStateCredentialFailureUsesTypedSafeResponse(t *testing.T) {
 	require.NotContains(t, recorder.Body.String(), "must-not-leak")
 }
 
+func TestOpenAIFailoverInsufficientUpstreamBalanceReturnsGeneric503(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"code":"INSUFFICIENT_BALANCE","message":"Insufficient account balance"}`)
+
+	t.Run("responses", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		(&OpenAIGatewayHandler{}).handleFailoverExhausted(c, &service.UpstreamFailoverError{
+			StatusCode:   http.StatusForbidden,
+			ResponseBody: body,
+		}, false)
+
+		require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
+		require.Equal(t, "Service temporarily unavailable, please try again later", gjson.Get(recorder.Body.String(), "error.message").String())
+		require.NotContains(t, recorder.Body.String(), "Insufficient account balance")
+		status, ok := c.Get(service.OpsUpstreamStatusCodeKey)
+		require.True(t, ok)
+		require.Equal(t, http.StatusForbidden, status)
+		message, ok := c.Get(service.OpsUpstreamErrorMessageKey)
+		require.True(t, ok)
+		require.Equal(t, "Insufficient account balance", message)
+	})
+
+	t.Run("anthropic", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		(&OpenAIGatewayHandler{}).handleAnthropicFailoverExhausted(c, &service.UpstreamFailoverError{
+			StatusCode:   http.StatusForbidden,
+			ResponseBody: body,
+		}, false)
+
+		require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
+		require.Equal(t, "api_error", gjson.Get(recorder.Body.String(), "error.type").String())
+		require.Equal(t, "Service temporarily unavailable, please try again later", gjson.Get(recorder.Body.String(), "error.message").String())
+		require.NotContains(t, recorder.Body.String(), "Insufficient account balance")
+	})
+}
+
 func TestOpenAICapacityFailoverExhaustionPreservesMessageAsServerError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	message := "Our servers are currently overloaded. Please try again later."

@@ -120,3 +120,64 @@ func TestStreamWrittenGuard_NoByteWritten_GuardNotTriggered(t *testing.T) {
 	require.False(t, guardTriggered,
 		"未写入任何字节时，守卫条件必须为 false，应允许正常 failover 继续")
 }
+
+func TestGatewayFailoverInsufficientUpstreamBalanceReturnsGeneric503(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := []byte(`{"code":"INSUFFICIENT_BALANCE","message":"Insufficient account balance"}`)
+
+	(&GatewayHandler{}).handleFailoverExhausted(c, &service.UpstreamFailoverError{
+		StatusCode:   http.StatusForbidden,
+		ResponseBody: body,
+	}, service.PlatformGemini, false)
+
+	require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
+	require.Contains(t, recorder.Body.String(), "Service temporarily unavailable")
+	require.NotContains(t, recorder.Body.String(), "Insufficient account balance")
+	status, ok := c.Get(service.OpsUpstreamStatusCodeKey)
+	require.True(t, ok)
+	require.Equal(t, http.StatusForbidden, status)
+	message, ok := c.Get(service.OpsUpstreamErrorMessageKey)
+	require.True(t, ok)
+	require.Equal(t, "Insufficient account balance", message)
+}
+
+func TestGatewayFailoverOnlyMapsTopLevelInsufficientBalance403(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name string
+		code int
+		body string
+	}{
+		{
+			name: "other forbidden",
+			code: http.StatusForbidden,
+			body: `{"code":"ACCESS_DENIED","message":"forbidden"}`,
+		},
+		{
+			name: "nested code",
+			code: http.StatusForbidden,
+			body: `{"error":{"code":"INSUFFICIENT_BALANCE","message":"Insufficient account balance"}}`,
+		},
+		{
+			name: "matching code with different status",
+			code: http.StatusBadGateway,
+			body: `{"code":"INSUFFICIENT_BALANCE","message":"Insufficient account balance"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			(&GatewayHandler{}).handleFailoverExhausted(c, &service.UpstreamFailoverError{
+				StatusCode:   tt.code,
+				ResponseBody: []byte(tt.body),
+			}, service.PlatformGemini, false)
+
+			require.Equal(t, http.StatusBadGateway, recorder.Code)
+			require.NotContains(t, recorder.Body.String(), "Service temporarily unavailable")
+		})
+	}
+}

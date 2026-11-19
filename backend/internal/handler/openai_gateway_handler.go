@@ -1655,6 +1655,12 @@ func (h *OpenAIGatewayHandler) handleAnthropicFailoverExhausted(c *gin.Context, 
 	if failoverErr != nil {
 		copyFailoverRetryAfter(c, failoverErr.ResponseHeaders)
 	}
+	if failoverErr != nil && service.IsUpstreamInsufficientBalanceError(failoverErr.StatusCode, failoverErr.ResponseBody) {
+		upstreamMsg := service.ExtractUpstreamErrorMessage(failoverErr.ResponseBody)
+		service.SetOpsUpstreamError(c, failoverErr.StatusCode, upstreamMsg, "")
+		h.anthropicStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "Service temporarily unavailable, please try again later", streamStarted)
+		return
+	}
 	if failoverErr != nil && failoverErr.IsCredentialFailure() {
 		status, message := credentialFailoverClientResponse(failoverErr)
 		h.anthropicStreamingAwareError(c, status, "api_error", message, streamStarted)
@@ -3640,6 +3646,12 @@ func (h *OpenAIGatewayHandler) handleFailoverExhausted(c *gin.Context, failoverE
 			service.OpenAIRequestBodyTooLargeClientMessage,
 			streamStarted,
 		)
+		return
+	}
+	if service.IsUpstreamInsufficientBalanceError(failoverErr.StatusCode, failoverErr.ResponseBody) {
+		upstreamMsg := service.ExtractUpstreamErrorMessage(failoverErr.ResponseBody)
+		service.SetOpsUpstreamError(c, failoverErr.StatusCode, upstreamMsg, "")
+		h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "upstream_error", "Service temporarily unavailable, please try again later", streamStarted)
 		return
 	}
 	if failoverErr.Reason == service.OpenAIHTTPContinuationUnsupportedReason {

@@ -285,6 +285,13 @@ func ExtractUpstreamErrorMessage(body []byte) string {
 	return extractUpstreamErrorMessage(body)
 }
 
+// IsUpstreamInsufficientBalanceError identifies the provider-side balance error
+// without conflating it with the gateway's own API-key balance check.
+func IsUpstreamInsufficientBalanceError(statusCode int, body []byte) bool {
+	return statusCode == http.StatusForbidden &&
+		strings.TrimSpace(gjson.GetBytes(body, "code").String()) == "INSUFFICIENT_BALANCE"
+}
+
 // SanitizeUpstreamErrorMessage redacts sensitive query parameter values before
 // an upstream error message is recorded or returned to a client.
 func SanitizeUpstreamErrorMessage(message string) string {
