@@ -41,7 +41,8 @@ RUN --mount=type=cache,id=sub2api-pnpm-store,target=/root/.local/share/pnpm/stor
 # Copy only that subtree to keep the build dependency minimal.
 COPY frontend/ ./
 COPY docs/legal/ /app/docs/legal/
-RUN pnpm run build
+# CI and release workflows run the full tests and typecheck; Docker only needs the bundle.
+RUN pnpm run build:bundle
 
 # -----------------------------------------------------------------------------
 # Stage 2: Backend Builder
